@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+
+# Ignore all files inside these folders but keep the folders
+data/*
+models/*
+notebooks/*
+plots/*
+
+# Allow tracking of .gitkeep files
+!data/.gitkeep
+!models/.gitkeep
+!notebooks/.gitkeep
+!plots/.gitkeep
+
+
+# Ignore build artifacts
+dist/
+*.egg-info/
+build/
+
+# Ignore macOS system files
+.DS_Store
