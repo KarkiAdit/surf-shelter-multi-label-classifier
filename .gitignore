@@ -13,6 +13,8 @@ plots/*
 !notebooks/.gitkeep
 !plots/.gitkeep
 
+# Ignore environment variables
+.env*
 
 # Ignore build artifacts
 dist/
@@ -21,3 +23,6 @@ build/
 
 # Ignore macOS system files
 .DS_Store
+
+# Ignore pycache files
+__pycache__/
