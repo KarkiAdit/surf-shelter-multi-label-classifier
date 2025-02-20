@@ -13,6 +13,6 @@ For implementation details, refer to `src/`.
 All other modules are internal and should not be accessed directly.
 """
 
-from src import SSMultiLabelClassifier
+from .src import SSMultiLabelClassifier
 
 __all__ = ["SSMultiLabelClassifier"]

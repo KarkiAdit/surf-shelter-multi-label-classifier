@@ -7,10 +7,12 @@ from .data_schemas.common_crawl_processed_schema import  WebpageData, CommonCraw
 
 # The helper functions
 from .batch_processor import BatchProcessor
+from .common_crawl_processor import CommonCrawlProcessor
 
 __all__ = [
     "WebpageData", 
     "CommonCrawlProcessed", 
     "IndexTracking", 
-    "BatchProcessor"
+    "BatchProcessor",
+    "CommonCrawlProcessor"
 ]
