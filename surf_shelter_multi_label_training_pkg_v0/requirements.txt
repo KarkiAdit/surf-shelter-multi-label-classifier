@@ -1,5 +1,7 @@
 beautifulsoup4==4.13.3
 black==25.1.0
+boto3==1.36.24
+botocore==1.36.24
 cachetools==5.5.1
 certifi==2025.1.31
 charset-normalizer==3.4.1
@@ -13,6 +15,7 @@ google-crc32c==1.6.0
 google-resumable-media==2.7.2
 googleapis-common-protos==1.67.0
 idna==3.10
+jmespath==1.0.1
 mongoengine==0.29.1
 mypy-extensions==1.0.0
 packaging==24.2
@@ -23,8 +26,10 @@ protobuf==5.29.3
 pyasn1==0.6.1
 pyasn1_modules==0.4.1
 pymongo==4.11.1
+python-dateutil==2.9.0.post0
 requests==2.32.3
 rsa==4.9
+s3transfer==0.11.2
 setuptools==75.8.0
 six==1.17.0
 soupsieve==2.6
