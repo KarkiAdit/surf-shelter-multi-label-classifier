@@ -19,7 +19,7 @@ class BatchProcessor:
         - Fetches the last used `batch_id` to resume from the last stored batch.
         - No explicit MongoDB connection is required since models handle it internally.
         """
-        self.batch_size = 1000  # Max 1000 records per batch
+        self.batch_size = 100  # Max 100 records per batch
         self.batch_id = self.get_last_batch_id() + 1  # Auto-increment batch ID
 
     def _insert_batch(self, data):
