@@ -3,7 +3,7 @@ This module provides a collection of utility functions and database schema defin
 processing, batch storage, and tracking for the Surf Shelter Multi Label Dataset generation pipeline. 
 """
 # The database schema definition classes
-from .data_schemas.common_crawl_processed_schema import  WebpageData, CommonCrawlProcessed, IndexTracking 
+from .data_schemas.common_crawl_processed_schema import  WebpageData, CommonCrawlProcessed, IndexTracking, WebpageLookupData, WebpageUrlLookup 
 
 # The helper functions
 from .batch_processor import BatchProcessor
@@ -12,7 +12,9 @@ from .common_crawl_processor import CommonCrawlProcessor
 __all__ = [
     "WebpageData", 
     "CommonCrawlProcessed", 
-    "IndexTracking", 
+    "IndexTracking",
+    "WebpageLookupData",
+    "WebpageUrlLookup", 
     "BatchProcessor",
     "CommonCrawlProcessor"
 ]

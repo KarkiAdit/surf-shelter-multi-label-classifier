@@ -47,6 +47,16 @@ class IndexTracking(meObj.Document):
     last_index = meObj.IntField(required=True, default=0)
     meta = {"collection": "index_tracking"}
 
+# Represents lookup info for a batch and field completeness.
+class WebpageLookupData(meObj.EmbeddedDocument):
+   batch_id = meObj.IntField(required=True) # The ID of the batch associated with the URL lookup.
+   has_all_fields = meObj.BinaryField(required=True) # Binary indicating if all expected fields were present.
+
+# Tracks unique webpage URLs and their lookup data.
+class WebpageUrlLookup(meObj.Document):
+   pageUrl = meObj.MapField(meObj.EmbeddedDocumentField(WebpageLookupData)) # Stores lookup info as: pageURL -> LookupData
+   meta = {"collection": "urlLookupTable"}
+
 # # Test Function
 # if __name__ == "__main__":
 #     batch, webpage = CommonCrawlProcessed.find_or_create(
