@@ -1,6 +1,8 @@
 import mongoengine as meObj
 import os
-import base64
+from pymongo import UpdateOne
+from typing import List, Tuple
+from datetime import datetime, timezone
 
 # Connect to MongoDB
 meObj.connect(db=os.getenv("COLLECTION_ID"), host=os.getenv("MONGO_URL"))
@@ -29,133 +31,144 @@ class CommonCrawlProcessed(meObj.Document):
     )  # Store webpages as a Dict (URL -> WebpageData)
     meta = {"collection": "webpages"}
 
-    # Returns the data of the webpage that gets added or updated
     @classmethod
-    def find_or_create(cls, batch_id, url, **kwargs):
-        # Encode the URL to remove special characters
-        safe_url_key = base64.urlsafe_b64encode(url.encode()).decode()
-        batch = cls.objects(batch_id=batch_id).first()
-        if not batch:
-            batch = cls(batch_id=batch_id, contents={})
-        if batch.contents is None:
-            batch.contents = {}
-        # Retrieve or create WebpageData safely
-        webpage_data = batch.contents.get(safe_url_key, WebpageData(url=url))
-        # Preserve existing fields while updating new ones
-        for key, value in kwargs.items():
-            if key != "url":  # Prevent modifying the URL
-                setattr(webpage_data, key, value)
-        # Store updated webpage data back into batch.contents
-        batch.contents[safe_url_key] = webpage_data
+    def update_batch(cls, batch_id, webpages_update_map):
+        """
+        Inserts or updates multiple webpage records in a given batch, preserving existing fields.
+
+        This method:
+        - Creates a new batch if it does not exist.
+        - Updates existing webpage data while retaining unchanged fields.
+        - Adds new webpages if they are not already present in the batch.
+        - Ensures data consistency by using MongoDB atomic operations.
+
+        Args:
+            batch_id (int): Unique identifier for the batch in which webpages are stored.
+            webpages_update_map (dict): A mapping of encoded URLs (keys) to `WebpageData` objects (values).
+                                        Each entry represents a webpage to be updated or inserted.
+
+        Returns:
+            dict: The updated batch contents with the modified or newly added webpage data.
+        """
+        # Fetch batch or create a new one
+        batch = cls.objects(batch_id=batch_id).modify(
+            upsert=True, new=True, set_on_insert__contents={}
+        ) or cls(batch_id=batch_id, contents={})
+        # Loop through all the pages in the map
+        for encoded_url, page_data in webpages_update_map.items():
+            # Update fields if encoded url already present
+            if encoded_url in batch.contents:
+                # Append new field values from page_data
+                for key, value in page_data.values():
+                    if key != "url":  # Prevent modifying the URL
+                        setattr(batch.contents[encoded_url], key, value)
+            else:  # Add new key-value for the fresh new webpage
+                batch.contents[encoded_url] = page_data
+        # Save batch with updated contents
         batch.save()
-        return batch.contents[safe_url_key]
+        return batch.contents
 
 
 # Define the Index Tracking Schema
 class IndexTracking(meObj.Document):
-    """Tracks the last processed batch index in MongoDB."""
+    """Tracks the last processed batch index and item in MongoDB."""
 
     _id = meObj.StringField(primary_key=True, default="last_processed_index")
-    last_index = meObj.IntField(required=True, default=0)
+    last_batch_id = meObj.IntField(required=True, default=0)  # Last processed batch ID
+    last_item_index = meObj.IntField(
+        required=True, default=0
+    )  # Last processed item index in that batch
+    updated_at = meObj.DateTimeField(
+        default=lambda: datetime.now(timezone.utc)
+    )  # Timezone-aware timestamp
+
     meta = {"collection": "index_tracking"}
-
-
-# Represents lookup info for a batch and field completeness.
-class WebpageLookupData(meObj.EmbeddedDocument):
-    batch_id = meObj.IntField(
-        required=True
-    )  # The ID of the batch associated with the URL lookup.
-    has_all_fields = meObj.BooleanField(
-        required=True, default=False
-    )  # Binary indicating if all expected fields were present. Default to false.
 
 
 # Tracks unique webpage URLs and their lookup data.
 class WebpageUrlLookup(meObj.Document):
     pageUrl = meObj.StringField(required=True, unique=True)  # URL Key (Encoded)
-    data = meObj.EmbeddedDocumentField(WebpageLookupData)
+    batch_id = meObj.IntField(
+        required=True
+    )  # The ID of the batch associated with the URL lookup.
     meta = {"collection": "url_lookup_table"}
 
-    # Returns the lookup data of a page that gets added or updated in the lookup table
     @classmethod
-    def update_lookup_data(cls, safe_url_key, batch_id, hasAllFieldsPopulated=False):
-        currUrl = cls.objects(pageUrl=safe_url_key).first()
-        if not currUrl:
-            # Create new document
-            currUrl = cls(
-                pageUrl=safe_url_key,
-                data=WebpageLookupData(
-                    batch_id=batch_id, has_all_fields=hasAllFieldsPopulated
-                ),
-            )
-        else:
-            if not currUrl.data:
-                currUrl.data = WebpageLookupData(
-                    batch_id=batch_id, has_all_fields=hasAllFieldsPopulated
+    def bulk_update_webpage_lookup(cls, updates: List[Tuple[str, int]]):
+        """
+        Performs a batch update on the `WebpageUrlLookup` collection.
+        """
+        if not updates:
+            return  # No updates to process
+        bulk_operations = []
+        collection = cls._get_collection()  # Get the raw MongoDB collection
+        for safe_url_key, batch_id in updates:
+            bulk_operations.append(
+                UpdateOne(
+                    {"pageUrl": safe_url_key},
+                    {"$set": {"batch_id": batch_id}},  # Update batch_id for the URL
+                    upsert=True,  # Insert if it doesn't exist
                 )
-            else:
-                currUrl.data.has_all_fields = hasAllFieldsPopulated
-        print(currUrl.pageUrl, currUrl.data)
-        currUrl.save()
-        return currUrl
-
-    # Checks if all fields are populated for a given Webpage Data
-    @classmethod
-    def page_data_has_all_fields(cls, data: WebpageData) -> bool:
-        # List of fields that should not be empty
-        required_fields = [
-            "url",
-            "html",
-            "embeddedScripts",
-            "externalScripts",
-            "title",
-            "links",
-            "headers",
-        ]
-        # Check if any required field is None or empty
-        for field in required_fields:
-            value = getattr(data, field, None)
-            if (
-                value is None
-                or (isinstance(value, list) and not value)
-                or (isinstance(value, str) and not value.strip())
-            ):
-                return False  # If any missing or empty fields, return false
-        # Update the lookup table
-        cls.objects(pageUrl=data.url).update(set__pageUrl__S__has_all_fields=True)
-        return True
+            )
+        # Execute bulk update operation
+        if bulk_operations:
+            collection.bulk_write(bulk_operations)
 
 
-# Test Function
+# # Test function
 # if __name__ == "__main__":
-#     webpage = CommonCrawlProcessed.find_or_create(
-#         batch_id=1,
-#         url="https://example5.com",
-#         html="<html><head><title>Example</title></head><body>Test</body></html>",
-#         embeddedScripts=["console.log('Hello');"],
-#     )
-#     webpage_updated = CommonCrawlProcessed.find_or_create(
-#         batch_id=1,
-#         url="https://example5.com",
-#         externalScripts=["https://example.com/script.js"],
-#         title="Example",
-#         links=["https://example.com/about"],
-#         headers=["https://example.com/analytics.js"],
-#     )
-#     # Test index tracking
-#     test_index = IndexTracking.objects(
-#         _id="last_processed_index"
-#     ).first() or IndexTracking(_id="last_processed_index")
-#     test_index.last_index = 1
-#     test_index.save()
-#     # Check the stored data
-#     print("Collections Created/Updated Successfully!")
-#     print(f"Total documents in 'webpages': {CommonCrawlProcessed.objects.count()}")
-#     print(f"Total documents in 'index_tracking': {IndexTracking.objects.count()}")
-#     print(webpage.html)
-#     print(webpage_updated.html)
-#     # Test lookup data
-#     url = "https://example5.com"
-#     test_safe_url = base64.urlsafe_b64encode(url.encode()).decode()
-#     lookup_data = WebpageUrlLookup.update_lookup_data(test_safe_url, 1)
-#     print(lookup_data)
+#     print("MongoDB Connection Established!")
+#     # Test database connection
+#     db_name = os.getenv("COLLECTION_ID")
+#     if not db_name:
+#         print("COLLECTION_ID environment variable is not set.")
+#     else:
+#         print(f"Using Database: {db_name}")
+#     # Sample batch ID
+#     test_batch_id = 1
+#     # Example encoded URLs and corresponding webpage data
+#     test_webpages_update_map = {
+#         "example_com": WebpageData(
+#             url="https://example.com",
+#             html="<html><head><title>Example Page</title></head><body>Test</body></html>",
+#             embeddedScripts=["console.log('Hello World');"],
+#             externalScripts=["https://example.com/script.js"],
+#             title="Example Page",
+#             links=["https://example.com/about"],
+#             headers=["https://example.com/analytics.js"]
+#         ),
+#         "another_example_com": WebpageData(
+#             url="https://another-example.com",
+#             html="<html><head><title>Another Example</title></head><body>Test</body></html>",
+#             embeddedScripts=["console.log('Test Another');"],
+#             externalScripts=["https://another-example.com/script.js"],
+#             title="Another Example Page",
+#             links=["https://another-example.com/contact"],
+#             headers=["https://another-example.com/tracker.js"]
+#         )
+#     }
+#     # Insert or update batch
+#     updated_batch_contents = CommonCrawlProcessed.update_batch(test_batch_id, test_webpages_update_map)
+#     # Print the updated batch
+#     print(f"\nUpdated Batch {test_batch_id}:")
+#     for encoded_url, webpage_data in updated_batch_contents.items():
+#         print(f"{encoded_url} → Title: {webpage_data.title}, HTML Length: {len(webpage_data.html)} chars")
+
+#     # Verify the batch exists in MongoDB
+#     found_batch = CommonCrawlProcessed.objects(batch_id=test_batch_id).first()
+#     if found_batch:
+#         print(f"Found Batch {test_batch_id} in MongoDB!")
+#     else:
+#         print(f"Batch {test_batch_id} not found in MongoDB!")
+#     # Prepare updates for the lookup table
+#     lookup_updates = [(encoded_url, test_batch_id) for encoded_url in test_webpages_update_map.keys()]
+#     # Perform bulk update on the lookup table
+#     WebpageUrlLookup.bulk_update_webpage_lookup(lookup_updates)
+#     # Verify lookup table updates
+#     print("\nChecking Lookup Table Entries:")
+#     for encoded_url, _ in lookup_updates:
+#         lookup_entry = WebpageUrlLookup.objects(pageUrl=encoded_url).first()
+#         if lookup_entry:
+#             print(f"Lookup Updated: {encoded_url} → Batch ID: {lookup_entry.batch_id}")
+#         else:
+#             print(f"Lookup Entry Missing: {encoded_url}")
