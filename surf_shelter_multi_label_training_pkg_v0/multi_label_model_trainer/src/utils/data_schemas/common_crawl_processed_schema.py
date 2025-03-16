@@ -1,7 +1,7 @@
 import mongoengine as meObj
 import os
 from pymongo import UpdateOne
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from datetime import datetime, timezone
 
 # Connect to MongoDB
@@ -13,12 +13,37 @@ class WebpageData(meObj.EmbeddedDocument):
     """Represents a single webpage's extracted data."""
 
     url = meObj.StringField(required=True)  # Unique within its batch
-    html = meObj.StringField()
+    html = meObj.StringField()  # Full HTML content of the webpage
     embeddedScripts = meObj.ListField(meObj.StringField())  # Inline JavaScript
-    externalScripts = meObj.ListField(meObj.StringField())  # External JS sources
-    title = meObj.StringField()
-    links = meObj.ListField(meObj.StringField())  # Outbound links
+    externalScripts = meObj.ListField(
+        meObj.StringField()
+    )  # External JavaScript sources (URLs)
+    title = meObj.StringField()  # Title of the webpage (from <title> tag)
+    links = meObj.ListField(
+        meObj.StringField()
+    )  # Outbound links present in the webpage
     headers = meObj.ListField(meObj.StringField())  # Script references (headers)
+
+    def to_dict(self) -> dict:
+        """
+        Converts the WebpageData object to a dictionary, removing fields that are None.
+
+        Returns:
+            dict: A dictionary representation of the webpage data without None values.
+        """
+        return {
+            key: value
+            for key, value in {
+                "url": self.url,
+                "html": self.html,
+                "embeddedScripts": self.embeddedScripts,
+                "externalScripts": self.externalScripts,
+                "title": self.title,
+                "links": self.links,
+                "headers": self.headers,
+            }.items()
+            if value is not None
+        }
 
 
 # Define the Common Crawl Processed Schema
@@ -51,19 +76,36 @@ class CommonCrawlProcessed(meObj.Document):
             dict: The updated batch contents with the modified or newly added webpage data.
         """
         # Fetch batch or create a new one
-        batch = cls.objects(batch_id=batch_id).modify(
-            upsert=True, new=True, set_on_insert__contents={}
-        ) or cls(batch_id=batch_id, contents={})
+        batch = cls.objects(batch_id=batch_id).first()
+        if not batch:
+            batch = cls(batch_id=batch_id, contents={})  # Create new batch
         # Loop through all the pages in the map
         for encoded_url, page_data in webpages_update_map.items():
-            # Update fields if encoded url already present
-            if encoded_url in batch.contents:
-                # Append new field values from page_data
-                for key, value in page_data.values():
-                    if key != "url":  # Prevent modifying the URL
-                        setattr(batch.contents[encoded_url], key, value)
-            else:  # Add new key-value for the fresh new webpage
-                batch.contents[encoded_url] = page_data
+            try:
+                # Ensure page_data is a WebpageData instance
+                if not isinstance(page_data, WebpageData):
+                    page_data = WebpageData(
+                        **page_data
+                    )  # Convert dict to WebpageData instance
+                if encoded_url in batch.contents:
+                    # Merge existing fields instead of overwriting
+                    existing_data = batch.contents[encoded_url].to_mongo()
+                    new_data = page_data.to_mongo()
+                    # Update only the non-null values
+                    for key, value in new_data.items():
+                        if isinstance(value, (list, dict, set)) and not value:
+                            continue  # Skip empty object updates
+                        if value is not None and key != "url":  # Keep URL unchanged and ignore null values
+                            existing_data[key] = value
+                    batch.contents[encoded_url] = WebpageData(
+                        **existing_data
+                    )  # Convert back to instance
+                else:
+                    batch.contents[encoded_url] = (
+                        page_data  # Store as WebpageData instance
+                    )
+            except (TypeError, ValueError) as e:
+                print(f"Error processing {encoded_url}: {e}")
         # Save batch with updated contents
         batch.save()
         return batch.contents
@@ -113,6 +155,24 @@ class WebpageUrlLookup(meObj.Document):
         # Execute bulk update operation
         if bulk_operations:
             collection.bulk_write(bulk_operations)
+
+    @classmethod
+    def bulk_data_lookup(cls, encoded_page_urls: List[str]) -> Dict[str, int]:
+        """
+        Fetches batch IDs for a list of encoded webpage URLs.
+
+        Args:
+            page_urls (List[str]): List of encoded webpage URLs.
+
+        Returns:
+            Dict[str, int]: A mapping of pageUrl -> batch_id for found documents.
+        """
+        if not encoded_page_urls:
+            return {}  # Return empty dict if input is empty
+        # Fetch all matching documents from MongoDB
+        lookups = cls.objects(pageUrl__in=encoded_page_urls)
+        # Map pageUrl -> batch_id
+        return {doc.pageUrl: doc.batch_id for doc in lookups}
 
 
 # # Test function
