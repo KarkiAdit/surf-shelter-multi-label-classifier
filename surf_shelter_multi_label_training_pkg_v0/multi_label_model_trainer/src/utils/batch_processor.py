@@ -244,44 +244,43 @@ class BatchProcessor:
             self.get_base64_encoded(url): WebpageData.to_dict(page_data)
             for url, page_data in batch_contents.items()
         }
-
-
-# Test function
-if __name__ == "__main__":
-    batch_processor = BatchProcessor()
-    IndexTracking.objects.delete()
-    WebpageUrlLookup.objects.delete()
-    CommonCrawlProcessed.objects.delete()
-    # Print batch processer's initialized values
-    print(vars(batch_processor))
-    test_batch_contents = {}
-    for i in range(1, 231):  # Generate 230 test webpages
-        url = f"https://example{i}.com"
-        webpage_data = WebpageData(
-            url=url,
-            html=f"<html><head><title>Example {i}</title></head><body>Test content {i}</body></html>",
-            embeddedScripts=[f"console.log('Test Script {i}');"],
-            externalScripts=[f"https://example{i}.com/script.js"],
-        )
-        test_batch_contents[url] = webpage_data  # Add webpage to batch
-    # Insert the generated test contents
-    batch_processor.insert_webpage_data(test_batch_contents)
-    # Print batch summary
-    print("\n230 Test Webpages Inserted Successfully!")
-    print(f"Total Batches in 'webpages': {batch_processor.count_documents()}")
-    print(f"Next batch id: {batch_processor.batch_id}")
-    # Create a mixture of previously added and new batch contents for updating
-    test_update_contents = {}
-    for i in range(1, 236): # Last 5 page data will be inserted. Remaining will be updated.
-        url = f"https://example{i}.com"
-        webpage_data = WebpageData(
-            url=url,
-            html="Updated",
-            title=f"Example {i}",
-            links=[f"https://example{i}.com/about", f"https://example{i}.com/contact"],
-            headers=[f"https://example{i}.com/analytics.js"],
-        )
-        test_update_contents[url] = webpage_data  # Add webpage to batch
-    batch_processor.update_webpage_data(test_update_contents)
-    print(f"Total batches: {batch_processor.count_documents()}")
-    print(f"Next batch id: {batch_processor.batch_id}")
+    
+# # Test function
+# if __name__ == "__main__":
+    ## batch_processor = BatchProcessor()
+    ## IndexTracking.objects.delete()
+    ## WebpageUrlLookup.objects.delete()
+    ## CommonCrawlProcessed.objects.delete()
+    # # Print batch processer's initialized values
+    # print(vars(batch_processor))
+    # test_batch_contents = {}
+    # for i in range(1, 231):  # Generate 230 test webpages
+    #     url = f"https://example{i}.com"
+    #     webpage_data = WebpageData(
+    #         url=url,
+    #         html=f"<html><head><title>Example {i}</title></head><body>Test content {i}</body></html>",
+    #         embeddedScripts=[f"console.log('Test Script {i}');"],
+    #         externalScripts=[f"https://example{i}.com/script.js"],
+    #     )
+    #     test_batch_contents[url] = webpage_data  # Add webpage to batch
+    # # Insert the generated test contents
+    # batch_processor.insert_webpage_data(test_batch_contents)
+    # # Print batch summary
+    # print("\n230 Test Webpages Inserted Successfully!")
+    # print(f"Total Batches in 'webpages': {batch_processor.count_documents()}")
+    # print(f"Next batch id: {batch_processor.batch_id}")
+    # # Create a mixture of previously added and new batch contents for updating
+    # test_update_contents = {}
+    # for i in range(1, 236): # Last 5 page data will be inserted. Remaining will be updated.
+    #     url = f"https://example{i}.com"
+    #     webpage_data = WebpageData(
+    #         url=url,
+    #         html="Updated",
+    #         title=f"Example {i}",
+    #         links=[f"https://example{i}.com/about", f"https://example{i}.com/contact"],
+    #         headers=[f"https://example{i}.com/analytics.js"],
+    #     )
+    #     test_update_contents[url] = webpage_data  # Add webpage to batch
+    # batch_processor.update_webpage_data(test_update_contents)
+    # print(f"Total batches: {batch_processor.count_documents()}")
+    # print(f"Next batch id: {batch_processor.batch_id}")
