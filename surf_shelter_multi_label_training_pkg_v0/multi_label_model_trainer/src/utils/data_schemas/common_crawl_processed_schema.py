@@ -45,6 +45,18 @@ class WebpageData(meObj.EmbeddedDocument):
             if value is not None
         }
 
+    def to_webpage_data(data):
+        """
+        Converts a dictionary to a WebpageData instance.
+
+        Args:
+            data (dict): Dictionary containing webpage details.
+
+        Returns:
+            WebpageData: An instance of WebpageData populated with the given data.
+        """
+        return WebpageData(**data)
+
 
 # Define the Common Crawl Processed Schema
 class CommonCrawlProcessed(meObj.Document):
@@ -84,8 +96,8 @@ class CommonCrawlProcessed(meObj.Document):
             try:
                 # Ensure page_data is a WebpageData instance
                 if not isinstance(page_data, WebpageData):
-                    page_data = WebpageData(
-                        **page_data
+                    page_data = WebpageData.to_webpage_data(
+                        page_data
                     )  # Convert dict to WebpageData instance
                 if encoded_url in batch.contents:
                     # Merge existing fields instead of overwriting
@@ -95,10 +107,12 @@ class CommonCrawlProcessed(meObj.Document):
                     for key, value in new_data.items():
                         if isinstance(value, (list, dict, set)) and not value:
                             continue  # Skip empty object updates
-                        if value is not None and key != "url":  # Keep URL unchanged and ignore null values
+                        if (
+                            value is not None and key != "url"
+                        ):  # Keep URL unchanged and ignore null values
                             existing_data[key] = value
-                    batch.contents[encoded_url] = WebpageData(
-                        **existing_data
+                    batch.contents[encoded_url] = WebpageData.to_webpage_data(
+                        existing_data
                     )  # Convert back to instance
                 else:
                     batch.contents[encoded_url] = (
