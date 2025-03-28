@@ -2,9 +2,9 @@ import json
 import boto3
 from enum import Enum
 from warcio.archiveiterator import ArchiveIterator
-from bs4 import BeautifulSoup
 from .batch_processor import BatchProcessor
 from .data_schemas.common_crawl_processed_schema import WebpageData
+from .html_parser import HTMLParser
 
 
 class RawFileType(Enum):
@@ -106,21 +106,12 @@ class CommonCrawlProcessor:
                             .read()
                             .decode("utf-8", errors="ignore")
                         )
-                        soup = BeautifulSoup(html_content, "html.parser")
-                        embedded_scripts = [
-                            script.get_text(strip=True)
-                            for script in soup.find_all("script")
-                            if script.string
-                        ][
-                            :3
-                        ]  # Limit to 3
-                        external_scripts = [
-                            script["src"]
-                            for script in soup.find_all("script", src=True)
-                            if "src" in script.attrs
-                        ][
-                            :3
-                        ]  # Limit to 3
+                        parser = HTMLParser(html_content)
+                        parsed_data = parser.get_scripts()
+                        # Extract required fields
+                        embedded_scripts = parsed_data.get("embedded_scripts", [])
+                        external_scripts = parsed_data.get("external_scripts", [])
+
                         # Check if all required fields have data
                         if (
                             not html_content

@@ -8,6 +8,7 @@ from .data_schemas.common_crawl_processed_schema import  WebpageData, CommonCraw
 # The helper functions
 from .batch_processor import BatchProcessor
 from .common_crawl_processor import CommonCrawlProcessor
+from .html_parser import HTMLParser
 
 __all__ = [
     "WebpageData", 
@@ -15,5 +16,6 @@ __all__ = [
     "IndexTracking",
     "WebpageUrlLookup", 
     "BatchProcessor",
-    "CommonCrawlProcessor"
+    "CommonCrawlProcessor",
+    "HTMLParser"
 ]
