@@ -113,7 +113,7 @@ def analyze_similarity(url_content_pairs):
     plt.legend()
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig('sbert_similarity_comparison.png')  # Save the plot
+    plt.savefig("sbert_similarity_comparison.png")  # Save the plot
     plt.show()  # Show the plot in the output
     # Print Summary
     print(results_df.head(20))  # Print first 20 results for preview
