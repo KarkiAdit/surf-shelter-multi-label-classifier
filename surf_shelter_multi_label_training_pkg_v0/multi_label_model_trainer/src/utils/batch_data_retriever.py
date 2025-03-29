@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, List, Optional
 from .data_schemas.common_crawl_processed_schema import CommonCrawlProcessed
+from .html_parser import HTMLParser
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +46,31 @@ class BatchDataRetriever:
             logger.error(f"Error retrieving batches: {e}")
             return {}
 
+def fetch_content():
+    """Fetch processed Common Crawl content from batches 105 and 114, extract titles and headings from HTML."""
+    batch_ids = list(range(104, 115))  # Batches 105 and 114
+    retriever = BatchDataRetriever(batch_ids)
+    batch_data = retriever.get_batches_data()
+    url_content_pairs = []
+    for batch in batch_data.values():
+        if batch:
+            for webpage in batch.values():
+                parser = HTMLParser(webpage.html)  # Initialize parser
+                content_pair = extract_content(parser, webpage.url)
+                if content_pair:  # Only append if content_pair is not None
+                    url_content_pairs.append(content_pair)
+    return url_content_pairs
+
+def extract_content(parser, url):
+    """Extracts title and headings asynchronously."""
+    title_dict = parser.get_title()
+    headings_dict = parser.get_headings()
+    title = title_dict.get("title", "No Title")
+    headings = sum(headings_dict.values(), [])  # Flatten heading lists
+    content_list = (
+        [title] + headings if headings else [title]
+    )  # Ensure it's always a list
+    return url, content_list  # Always return a tuple
 
 # # Usage Example
 # if __name__ == "__main__":
