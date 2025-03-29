@@ -10,6 +10,7 @@ from .batch_processor import BatchProcessor
 from .common_crawl_processor import CommonCrawlProcessor
 from .html_parser import HTMLParser
 from .batch_data_retriever import BatchDataRetriever
+from .text_similarity_analyzer import TextSimilarityAnalyzer
 
 __all__ = [
     "WebpageData", 
@@ -19,5 +20,6 @@ __all__ = [
     "BatchProcessor",
     "CommonCrawlProcessor",
     "HTMLParser",
-    "BatchDataRetriever"
+    "BatchDataRetriever",
+    "TextSimilarityAnalyzer"
 ]
