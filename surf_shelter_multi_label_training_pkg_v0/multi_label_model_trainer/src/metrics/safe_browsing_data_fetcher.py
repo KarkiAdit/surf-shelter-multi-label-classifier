@@ -4,19 +4,18 @@ import requests
 
 class SafeBrowsingDataFetcher:
     """
-    Evaluates a website's safety using the Google Safe Browsing API, classifying it based on detected threats.
+    Fetches and analyzes website safety data using the Google Safe Browsing API.
 
-    This class checks a given URL for various threat types, including social engineering,
-    phishing, suspicious content, malware, and unwanted software. It aggregates the threat counts
-    and classifies the website as clickbait, pay fraud, or harmful based on predefined thresholds.
+    This class queries the Google Safe Browsing API to detect various threat types associated with a given URL.
+    It then classifies the URL as potentially clickbait/pay fraud or harmful based on aggregated threat counts and predefined thresholds.
 
     Attributes:
-        website_url (str): The URL of the website to evaluate.
-        _threats_info (dict): A dictionary storing the count of each detected threat type.
-        is_clickbait_content (bool): Indicates if the website is classified as clickbait content.
-        is_payfraud_content (bool): Indicates if the website is classified as pay fraud content.
-        is_harmful_content (bool): Indicates if the website is classified as harmful content.
-        threat_threshold (int): The threshold for classifying a website based on threat counts.
+        website_url (str): The URL to be evaluated.
+        _threats_info (dict): A dictionary storing the count of detected threat types.
+        is_clickbait_content (bool): Indicates if the URL is classified as clickbait content.
+        is_payfraud_content (bool): Indicates if the URL is classified as pay fraud content.
+        is_harmful_content (bool): Indicates if the URL is classified as harmful content.
+        threat_threshold (int): The threshold for classifying a URL based on aggregated threat counts.
     """
 
     def __init__(self, url):
@@ -27,21 +26,21 @@ class SafeBrowsingDataFetcher:
             url (str): The URL of the website to evaluate for threats.
         """
         self.website_url = url
+        self.threat_threshold = 2  # Threshold based on social security research
         self._threats_info = {
+            "THREAT_TYPE_UNSPECIFIED": 0,
             "SOCIAL_ENGINEERING": 0,
-            "PHISHING": 0,
-            "SUSPICIOUS": 0,
             "MALWARE": 0,
             "UNWANTED_SOFTWARE": 0,
+            "POTENTIALLY_HARMFUL_APPLICATION": 0,
         }
-        self.is_clickbait_content = False  # True if Threat type is SOCIAL_ENGINEERING
+        self.is_clickbait_content = (
+            False  # True if Threat type is THREAT_TYPE_UNSPECIFIED within the threshold
+        )
         self.is_payfraud_content = (
-            False  # True if Threat type is PHISHING and SUSPICIOUS
+            False  # True if Threat type is THREAT_TYPE_UNSPECIFIED
         )
-        self.is_harmful_content = (
-            False  # True if Threat type is MALWARE and UNWANTED_SOFTWARE
-        )
-        self.threat_threshold = 3  # Threshold based on social security research
+        self.is_harmful_content = False  # True if Threat type is SOCIAL_ENGINEERING, MALWARE, UNWANTED_SOFTWARE, POTENTIALLY_HARMFUL_APPLICATION
         self._evaluate_url_using_safe_browsing_api()
 
     def _evaluate_url_using_safe_browsing_api(self):
@@ -57,7 +56,7 @@ class SafeBrowsingDataFetcher:
         params = {
             "key": os.getenv(
                 "GOOGLE_SAFE_BROWSING_KEY"
-            )  # Your API key should be set in environment variables
+            )  # API key from the environment variables
         }
         payload = {
             "client": {
@@ -68,6 +67,13 @@ class SafeBrowsingDataFetcher:
                 "platformTypes": ["ANY_PLATFORM"],
                 "threatEntryTypes": ["URL"],
                 "threatEntries": [{"url": self.website_url}],
+                "threatTypes": [
+                    "THREAT_TYPE_UNSPECIFIED",
+                    "SOCIAL_ENGINEERING",
+                    "MALWARE",
+                    "UNWANTED_SOFTWARE",
+                    "POTENTIALLY_HARMFUL_APPLICATION"
+                ],
             },
         }
 
@@ -101,27 +107,26 @@ class SafeBrowsingDataFetcher:
         `is_harmful_content` attributes based on the counts of detected threats.
 
         Classification rules:
-            - Clickbait: SOCIAL_ENGINEERING count exceeds threshold.
-            - Pay fraud: PHISHING and SUSPICIOUS counts both exceed threshold.
-            - Harmful: MALWARE and UNWANTED_SOFTWARE counts both exceed threshold.
+            - Clickbait and Pay fraud: If THREAT_TYPE_UNSPECIFIED count exceeds threshold.
+            - Harmful: If any of MALWARE, UNWANTED_SOFTWARE, POTENTIALLY_HARMFUL_APPLICATION,
+              or SOCIAL_ENGINEERING counts exceed threshold.
         """
-        if self._threats_info["SOCIAL_ENGINEERING"] >= self.threat_threshold:
+        if self._threats_info["THREAT_TYPE_UNSPECIFIED"] >= self.threat_threshold:
             self.is_clickbait_content = True
-        if (
-            self._threats_info["PHISHING"] >= self.threat_threshold
-            and self._threats_info["SUSPICIOUS"] >= self.threat_threshold
-        ):
             self.is_payfraud_content = True
         if (
             self._threats_info["MALWARE"] >= self.threat_threshold
-            and self._threats_info["UNWANTED_SOFTWARE"] >= self.threat_threshold
+            or self._threats_info["UNWANTED_SOFTWARE"] >= self.threat_threshold
+            or self._threats_info["POTENTIALLY_HARMFUL_APPLICATION"]
+            >= self.threat_threshold
+            or self._threats_info["SOCIAL_ENGINEERING"] >= self.threat_threshold
         ):
             self.is_harmful_content = True
 
 
 # # Test function
-# if __name__ == "main":
-#     url = "http://example.com"
+# if __name__ == "__main__":
+#     url = "http://malicious-domain.com/download/malware.exe"
 #     comparator = SafeBrowsingDataFetcher(url)
 
 #     # Access the results of classification
