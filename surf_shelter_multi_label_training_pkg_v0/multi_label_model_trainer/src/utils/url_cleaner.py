@@ -1,6 +1,7 @@
 import re
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 from url_normalize import url_normalize
+from fuzzywuzzy import fuzz
 
 class URLCleaner:
     """
@@ -112,6 +113,51 @@ class URLCleaner:
         """
         parsed_url = urlparse(url)
         return urlunparse(parsed_url._replace(fragment=''))
+
+    @staticmethod
+    def clean_url(raw_url):
+        """
+        Cleans the URL by normalizing, removing default ports, sorting query parameters, 
+        removing duplicate slashes, and removing fragments.
+
+        Args:
+            raw_url (str): The raw URL to clean.
+
+        Returns:
+            str: The cleaned URL.
+        """
+        # Normalize the URL
+        normalized_url = URLCleaner.normalize_url(raw_url)
+        
+        # Remove default ports if present
+        url_without_default_port = URLCleaner.remove_default_port(normalized_url)
+        
+        # Sort query parameters alphabetically
+        url_with_sorted_query = URLCleaner.sort_query_parameters(url_without_default_port)
+        
+        # Remove duplicate slashes from the path
+        url_without_duplicate_slashes = URLCleaner.remove_duplicate_slashes(url_with_sorted_query)
+        
+        # Remove the fragment
+        final_url = URLCleaner.remove_fragment(url_without_duplicate_slashes)
+        
+        return final_url
+
+    @staticmethod
+    def compare_urls(url1, url2, fuzz_threshold_ratio):
+        """
+        Compares two URLs for similarity using fuzzy string matching.
+
+        Args:
+            url1 (str): The first URL to compare.
+            url2 (str): The second URL to compare.
+            fuzz_threshold_ratio (int): The similarity threshold (0-100) above which URLs are considered a match.
+
+        Returns:
+            bool: True if the similarity score between the URLs meets or exceeds the threshold, False otherwise.
+        """
+        similarity = fuzz.ratio(url1, url2)
+        return similarity >= fuzz_threshold_ratio
 
 # # Test function
 # if __name__ == "__main__":
