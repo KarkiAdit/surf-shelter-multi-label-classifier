@@ -23,19 +23,28 @@ class TextSimilarityAnalyzer:
 
     def calculate_similarity(self, embeddings1, embeddings2):
         """
-        Calculates the maximum cosine similarity between two sets of embeddings.
+        Computes the cosine similarity between two sets of embeddings and normalizes it to a range of [0, 1] for binary classification.
 
         Args:
-            embeddings1 (numpy.ndarray): The embeddings of the first set of text.
-            embeddings2 (numpy.ndarray): The embeddings of the second set of text.
+            embeddings1 (numpy.ndarray): The embeddings of the first set of text (shape: [n_samples, embedding_dim]).
+            embeddings2 (numpy.ndarray): The embeddings of the second set of text (shape: [n_samples, embedding_dim]).
 
         Returns:
-            float: The maximum cosine similarity.
+            float: The normalized cosine similarity score in the range [0, 1], suitable for binary classification.
         """
-        similarity_matrix = np.inner(embeddings1, embeddings2)
-        return np.max(similarity_matrix) if similarity_matrix.size > 0 else 0
+        # Average the embeddings across all content and URL components
+        avg_embeddings1 = np.mean(embeddings1, axis=0)
+        avg_embeddings2 = np.mean(embeddings2, axis=0)
 
-    def url_matching_content(self, url, content_list, similarity_threshold=0.75):
+        cosine_similarity = np.dot(avg_embeddings1, avg_embeddings2) / (
+            np.linalg.norm(avg_embeddings1) * np.linalg.norm(avg_embeddings2)
+        )
+
+        # Normalize cosine similarity from [-1, 1] to [0, 1]
+        normalized_cosine_similarity = (cosine_similarity + 1) / 2
+        return normalized_cosine_similarity
+
+    def url_matching_content(self, url, content_list, similarity_threshold=0.80):
         """
         Labels the URL as matching or not matching the content based on similarity.
 
