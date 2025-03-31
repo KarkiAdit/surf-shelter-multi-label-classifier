@@ -11,6 +11,7 @@ from .common_crawl_processor import CommonCrawlProcessor
 from .html_parser import HTMLParser
 from .batch_data_retriever import BatchDataRetriever
 from .text_similarity_analyzer import TextSimilarityAnalyzer
+from .url_cleaner import URLCleaner
 
 __all__ = [
     "WebpageData", 
@@ -21,5 +22,6 @@ __all__ = [
     "CommonCrawlProcessor",
     "HTMLParser",
     "BatchDataRetriever",
-    "TextSimilarityAnalyzer"
+    "TextSimilarityAnalyzer",
+    "URLCleaner"
 ]
