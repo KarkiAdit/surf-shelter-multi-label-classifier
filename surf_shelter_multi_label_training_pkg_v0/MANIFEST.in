@@ -1,0 +1,2 @@
+# Include the clickbait_data.csv file
+include multi_label_model_trainer/data/clickbait_data.csv
