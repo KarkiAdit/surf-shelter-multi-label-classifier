@@ -1,8 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from .batch_data_retriever import fetch_content
-import re
-from urllib.parse import urlparse
+from .url_cleaner import URLCleaner
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
@@ -20,22 +19,32 @@ class TextSimilarityAnalyzer:
             model_name (str): The name of the Sentence Transformer model to use.
         """
         self.model = SentenceTransformer(model_name)
+        self.url_cleaner = URLCleaner()
 
     def calculate_similarity(self, embeddings1, embeddings2):
         """
-        Calculates the maximum cosine similarity between two sets of embeddings.
+        Computes the cosine similarity between two sets of embeddings and normalizes it to a range of [0, 1] for binary classification.
 
         Args:
-            embeddings1 (numpy.ndarray): The embeddings of the first set of text.
-            embeddings2 (numpy.ndarray): The embeddings of the second set of text.
+            embeddings1 (numpy.ndarray): The embeddings of the first set of text (shape: [n_samples, embedding_dim]).
+            embeddings2 (numpy.ndarray): The embeddings of the second set of text (shape: [n_samples, embedding_dim]).
 
         Returns:
-            float: The maximum cosine similarity.
+            float: The normalized cosine similarity score in the range [0, 1], suitable for binary classification.
         """
-        similarity_matrix = np.inner(embeddings1, embeddings2)
-        return np.max(similarity_matrix) if similarity_matrix.size > 0 else 0
+        # Average the embeddings across all content and URL components
+        avg_embeddings1 = np.mean(embeddings1, axis=0)
+        avg_embeddings2 = np.mean(embeddings2, axis=0)
 
-    def url_matching_content(self, url, content_list, similarity_threshold=0.75):
+        cosine_similarity = np.dot(avg_embeddings1, avg_embeddings2) / (
+            np.linalg.norm(avg_embeddings1) * np.linalg.norm(avg_embeddings2)
+        )
+
+        # Normalize cosine similarity from [-1, 1] to [0, 1]
+        normalized_cosine_similarity = (cosine_similarity + 1) / 2
+        return normalized_cosine_similarity
+
+    def url_matching_content(self, url, content_list, similarity_threshold=0.80):
         """
         Labels the URL as matching or not matching the content based on similarity.
 
@@ -50,7 +59,19 @@ class TextSimilarityAnalyzer:
         if not content_list:
             return False, 0.0  # Return default values if content is empty
 
-        url_components = self._extract_url_components(url)
+        # Normalize the URL
+        normalized_url = self.url_cleaner.normalize_url(url)
+
+        # Extract URL components
+        url_components_dict = self.url_cleaner.extract_url_components(normalized_url)
+        url_components = []
+        # Choose path, query and netloc part of url to encode
+        for key in ["path", "query", "netloc"]:
+            if key in url_components_dict:
+                url_components.append(url_components_dict[key])
+        print(url_components)
+
+
         content_embeddings = self.model.encode(content_list)  # Safe to encode now
         url_component_embeddings = self.model.encode(url_components)
 
@@ -58,33 +79,6 @@ class TextSimilarityAnalyzer:
             content_embeddings, url_component_embeddings
         )
         return max_similarity >= similarity_threshold, max_similarity
-
-    def _extract_url_components(self, url):
-        """
-        Helper function to extract relevant components from the URL.
-
-        Args:
-            url (str): The URL to analyze.
-
-        Returns:
-            list: A list of URL components (e.g., path, query parameters).
-        """
-        parsed_url = urlparse(url)
-        components = []
-        if parsed_url.path:
-            components.append(parsed_url.path)
-        if parsed_url.query:
-            components.append(parsed_url.query)
-        if parsed_url.netloc:
-            components.append(parsed_url.netloc)
-
-        # Extract words from the path and query parameters
-        words_from_path = re.findall(r"\w+", parsed_url.path)
-        words_from_query = re.findall(r"\w+", parsed_url.query)
-        components.extend(words_from_path)
-        components.extend(words_from_query)
-
-        return components
 
 
 def analyze_similarity(url_content_pairs):

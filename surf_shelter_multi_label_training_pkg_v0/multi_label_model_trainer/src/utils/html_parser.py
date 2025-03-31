@@ -1,5 +1,7 @@
 from bs4 import BeautifulSoup
 from typing import Dict, List
+import re
+
 
 class HTMLParser:
     """A utility class to parse HTML and extract structured elements."""
@@ -40,11 +42,23 @@ class HTMLParser:
         return meta_tags
 
     def get_clean_text(self) -> Dict[str, str]:
-        """Extract visible text."""
-        for script in self.soup(["script", "style"]):  # Remove scripts & styles
-            script.extract()
+        """
+        Extracts visible text from an HTML page and splits it into sentences efficiently.
+
+        :return: A dictionary containing:
+            - "text": The full cleaned text.
+            - "sentences": A list of sentences extracted from the text.
+        """
+        # Remove scripts & styles
+        for tag in self.soup(["script", "style"]):
+            tag.extract()
+        # Get visible text, normalize spaces
         clean_text = " ".join(self.soup.get_text(separator=" ").split())
-        return {"text": clean_text}
+        # Use regex to split sentences efficiently
+        sentences = re.split(r"(?<=[.!?])\s+", clean_text.strip())
+        # Remove any empty strings that might appear due to extra spaces
+        sentences = [s for s in sentences if s]
+        return {"text": clean_text, "sentences": sentences}
 
     def get_scripts(self, limit: int = 3) -> Dict[str, List[str]]:
         """Extract embedded and external JavaScript sources."""
@@ -69,6 +83,7 @@ class HTMLParser:
             for tag in self.soup.find_all("img")
         ]
         return images
+
 
 # if __name__ == "__main__":
 #     html_content = """

@@ -11,4 +11,5 @@ setup(
     packages=find_packages(),
     python_requires=">=3.7",
     install_requires=read_requirements(),
+    include_package_data=True, # Ensure necessary package data (non .py files) are accessible
 )
