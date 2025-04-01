@@ -126,7 +126,7 @@ class ClickbaitFeatureExtractor:
             else 0.0
         )
 
-    def _compute_additional_properties_score(
+    def compute_additional_properties_score(
         self, csv_file_name="clickbait_data.csv", similarity_threshold=0.75
     ):
         """
@@ -256,7 +256,7 @@ class ClickbaitFeatureExtractor:
             self._compute_url_html_similarity_score(),
             self._compute_fear_mongering_score(),
             self._compute_grammatical_errors_score(),
-            self._compute_additional_properties_score(),
+            self.compute_additional_properties_score(),
         ]
 
 
