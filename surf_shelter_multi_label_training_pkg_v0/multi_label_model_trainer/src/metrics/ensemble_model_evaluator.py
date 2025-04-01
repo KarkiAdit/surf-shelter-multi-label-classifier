@@ -19,8 +19,8 @@ class EnsembleModelEvaluator:
     metrics side by side to compare the models' effectiveness.
 
     Attributes:
-    models (list): A list of trained ensemble learning models (e.g., XGBoost, Random Forest, Bagged SVM).
-                   Each model object must have a `predict(X)` method.
+        models (list): A list of trained ensemble learning models (e.g., XGBoost, Random Forest, Bagged SVM).
+            Each model object must have a `predict(X)` method.
     """
 
     def __init__(self, models):
@@ -28,7 +28,7 @@ class EnsembleModelEvaluator:
         Initializes the EnsembleModelEvaluator with a list of trained ensemble models.
 
         Args:
-        models (list): A list of trained ensemble learning models (e.g., XGBoost, Random Forest, Bagged SVM).
+            models (list): A list of trained ensemble learning models (e.g., XGBoost, Random Forest, Bagged SVM).
         """
         if not isinstance(models, list) or not models:
             raise ValueError("Input 'models' must be a non-empty list.")
@@ -72,10 +72,6 @@ class EnsembleModelEvaluator:
         for model, name in zip(self.models, model_names):
             try:
                 predictions = model.predict(X_test)
-
-                # Ensure labels are comparable if necessary (e.g., binary)
-                # predictions = (predictions > 0.5).astype(int) # Example if model outputs probabilities
-
                 f1 = f1_score(y_true, predictions, zero_division=0)
                 accuracy = accuracy_score(y_true, predictions)
                 precision = precision_score(y_true, predictions, zero_division=0)
@@ -168,17 +164,18 @@ class EnsembleModelEvaluator:
 
         fig, ax = plt.subplots(figsize=(max(6, len(model_names_all) * 1.5), 7)) # Dynamic width
 
-        rects1 = ax.bar(x - width, f1_scores, width, label='F1 Score', color=colors[0], edgecolor='grey', zorder=2)
-        rects2 = ax.bar(x, accuracy_scores, width, label='Accuracy', color=colors[1], edgecolor='grey', zorder=2)
-        rects3 = ax.bar(x + width, precision_scores, width, label='Precision', color=colors[2], edgecolor='grey', zorder=2)
+        # Construct the bar for each metric for a model
+        ax.bar(x - width, f1_scores, width, label='F1 Score', color=colors[0], edgecolor='grey', zorder=2)
+        ax.bar(x, accuracy_scores, width, label='Accuracy', color=colors[1], edgecolor='grey', zorder=2)
+        ax.bar(x + width, precision_scores, width, label='Precision', color=colors[2], edgecolor='grey', zorder=2)
 
-        ax.set_ylabel('Score', fontsize=12)
-        ax.set_xlabel('Model', fontsize=12)
-        ax.set_title('Ensemble Model Performance Comparison', fontsize=16, fontweight='bold', pad=20)
+        ax.set_ylabel('Performance Scores', fontsize=12)
+        ax.set_xlabel('Ensemble Learning Models', fontsize=12)
+        ax.set_title("Accuracy Assessment: Surf Shelter vs. Google Safe Browsing", fontsize=16, fontweight='bold', pad=20)
         ax.set_xticks(x)
         ax.set_xticklabels(model_names_all, rotation=45, ha='right', fontsize=10)
         ax.set_ylim(0, 1.1) # Set Y limit slightly above 1.0 for labels
-        ax.legend(fontsize=10, title="Metrics", title_fontsize='11', loc='upper right')
+        ax.legend(fontsize=10, title="Performance Metrics", title_fontsize='11', loc='upper right')
 
         # Add value labels using the helper function
         self._add_value_labels(ax, spacing=5)
@@ -197,3 +194,46 @@ class EnsembleModelEvaluator:
 
         fig.tight_layout()
         plt.show()
+
+# if __name__ == "__main__":
+#     from sklearn.datasets import make_classification
+#     from sklearn.model_selection import train_test_split
+#     from sklearn.ensemble import RandomForestClassifier, BaggingClassifier
+#     from sklearn.svm import SVC
+#     import xgboost as xgb
+#     from faker import Faker
+#     import warnings
+#     # Suppress warnings
+#     warnings.filterwarnings("ignore")
+#     # Initialize Faker for generating random URLs
+#     fake = Faker()
+#     # Generate 10 random URLs
+#     random_urls = [fake.url() for _ in range(10)]
+#     # Generate synthetic binary classification data
+#     X, y = make_classification(n_samples=100, n_features=20, n_informative=15, n_classes=2, random_state=42)
+#     # Split data into training and testing sets
+#     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+#     # Initialize models
+#     rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+#     svc_model = SVC(probability=True, random_state=42)
+#     xgb_model = xgb.XGBClassifier(n_estimators=100, random_state=42)
+#     # Train models
+#     rf_model.fit(X_train, y_train)
+#     svc_model.fit(X_train, y_train)
+#     xgb_model.fit(X_train, y_train)
+#     bg_classifier_model = BaggingClassifier(estimator=svc_model, n_estimators=10, random_state=42)
+#     # Train the BaggingClassifier
+#     bg_classifier_model.fit(X_train, y_train)
+#     # Initialize EnsembleModelEvaluator with trained models
+#     models = [rf_model, bg_classifier_model, xgb_model]
+#     model_names = ["Random Forest", "Bagged SVM", "XGBoost"]
+#     evaluator = EnsembleModelEvaluator(models)
+#     # Evaluate models
+#     metrics = evaluator.evaluate_multiple_models(X_test, y_test, model_names)
+#     # Display metrics
+#     for name, metrics_dict in metrics.items():
+#         print(f"Model: {name}")
+#         print(f"F1 Score: {metrics_dict['F1 Score']:.4f}")
+#         print(f"Accuracy: {metrics_dict['Accuracy']:.4f}")
+#         print(f"Precision: {metrics_dict['Precision']:.4f}")
+#         print("-" * 30)
